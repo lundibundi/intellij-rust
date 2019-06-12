@@ -145,18 +145,25 @@ object RsCommonCompletionProvider : CompletionProvider<CompletionParameters>() {
         }
 
         for (elementName in CompletionUtil.sortMatching(result.prefixMatcher, keys)) {
-            val candidates = AutoImportFix.getImportCandidates(importContext, elementName, elementName) {
-                !(it.item is RsMod || it.item is RsModDeclItem || it.item.parent is RsMembers)
-            }
-
-            candidates
+            getImportCandidates(importContext, elementName)
                 .distinctBy { it.qualifiedNamedItem.item }
-                .map { candidate ->
-                    val item = candidate.qualifiedNamedItem.item
+                .mapNotNull { originalCandidate ->
+                    val item = originalCandidate.qualifiedNamedItem.item
+
+                    val (scopeName, candidate) = if (item is RsEnumVariant) {
+                        val enum = item.parentEnum
+                        val enumName = enum.name ?: return@mapNotNull null
+                        val candidate = getImportCandidates(importContext, enumName)
+                            .firstOrNull { it.qualifiedNamedItem.item == enum }
+                        "$enumName::$elementName" to candidate
+                    } else {
+                        elementName to originalCandidate
+                    }
+
                     createLookupElement(
                         element = item,
-                        scopeName = elementName,
-                        locationString = candidate.info.usePath,
+                        scopeName = scopeName,
+                        locationString = originalCandidate.info.usePath,
                         forSimplePath = true,
                         expectedTy = expectedTy,
                         insertHandler = object : RsDefaultInsertHandler() {
@@ -166,8 +173,8 @@ object RsCommonCompletionProvider : CompletionProvider<CompletionParameters>() {
                                 context: InsertionContext,
                                 item: LookupElement
                             ) {
-                                super.handleInsert(element, scopeName, context, item)
-                                if (RsCodeInsightSettings.getInstance().importOutOfScopeItems) {
+                                super.handleInsert(element, elementName, context, item)
+                                if (candidate != null && RsCodeInsightSettings.getInstance().importOutOfScopeItems) {
                                     context.commitDocument()
                                     context.getElementOfType<RsElement>()?.let { candidate.import(it) }
                                 }
@@ -178,6 +185,11 @@ object RsCommonCompletionProvider : CompletionProvider<CompletionParameters>() {
                 .forEach(result::addElement)
         }
     }
+
+    private fun getImportCandidates(importContext: ImportContext, elementName: String): Sequence<ImportCandidate> =
+        AutoImportFix.getImportCandidates(importContext, elementName, elementName) {
+            !(it.item is RsMod || it.item is RsModDeclItem || it.item.parent is RsMembers)
+        }
 
     val elementPattern: ElementPattern<PsiElement>
         get() = PlatformPatterns.psiElement().withParent(psiElement<RsReferenceElement>())
