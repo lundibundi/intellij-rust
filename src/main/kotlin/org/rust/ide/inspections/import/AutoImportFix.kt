@@ -13,12 +13,10 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.search.GlobalSearchScope
-import org.rust.cargo.project.model.cargoProjects
 import org.rust.cargo.project.workspace.CargoWorkspace
 import org.rust.cargo.project.workspace.PackageOrigin
 import org.rust.cargo.util.AutoInjectedCrates
 import org.rust.ide.injected.isDoctestInjection
-import org.rust.ide.search.RsCargoProjectScope
 import org.rust.ide.search.RsWithMacrosScope
 import org.rust.lang.core.psi.*
 import org.rust.lang.core.psi.ext.*
@@ -234,6 +232,9 @@ class AutoImportFix(element: RsElement) : LocalQuickFixOnPsiElement(element), Hi
         private fun QualifiedNamedItem.canBeImported(superMods: LinkedHashSet<RsMod>): ImportInfo? {
             check(superMods.isNotEmpty())
             if (item !is RsVisible) return null
+            val target = containingCargoTarget ?: return null
+            // filter out transitive dependencies
+            if (target.pkg.origin == PackageOrigin.TRANSITIVE_DEPENDENCY) return null
 
             val ourSuperMods = this.superMods ?: return null
             val parentMod = ourSuperMods.getOrNull(0) ?: return null
@@ -245,7 +246,6 @@ class AutoImportFix(element: RsElement) : LocalQuickFixOnPsiElement(element), Hi
 
             val (shouldBePublicMods, importInfo) = if (lca == null) {
                 if (!isPublic) return null
-                val target = containingCargoTarget ?: return null
                 val externCrateMod = ourSuperMods.last()
 
                 val externCrateWithDepth = superMods.withIndex().mapNotNull { (index, superMod) ->
@@ -618,7 +618,7 @@ data class ImportContext private constructor(
             project = project,
             mod = path.containingMod,
             superMods = LinkedHashSet(path.containingMod.superMods),
-            scope = RsWithMacrosScope(project, RsCargoProjectScope(project.cargoProjects, GlobalSearchScope.allScope(project))),
+            scope = RsWithMacrosScope(project, GlobalSearchScope.allScope(project)),
             ns = path.pathNamespace,
             attributes = path.stdlibAttributes,
             namespaceFilter = path.namespaceFilter(isCompletion)
