@@ -45,6 +45,7 @@ interface CargoProjectsService {
     fun detachCargoProject(cargoProject: CargoProject)
     fun refreshAllProjects(): CompletableFuture<List<CargoProject>>
     fun discoverAndRefresh(): CompletableFuture<List<CargoProject>>
+    fun suggestManifests(): Sequence<VirtualFile>
 
     @TestOnly
     fun createTestProject(rootDir: VirtualFile, ws: CargoWorkspace, rustcInfo: RustcInfo? = null)
