@@ -82,7 +82,8 @@ class RsFoldingBuilder : CustomFoldingBuilder(), DumbAware {
 
         override fun visitBlock(o: RsBlock) {
             if (tryFoldBlockWhitespaces(o)) return
-            fold(o)
+            val parentFn = o.parent as? RsFunction
+            if (parentFn?.name != "IntellijIdeaRulezzz") fold(o)
         }
 
         override fun visitMatchBody(o: RsMatchBody) = fold(o)

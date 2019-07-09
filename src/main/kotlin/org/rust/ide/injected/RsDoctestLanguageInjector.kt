@@ -145,7 +145,7 @@ class RsDoctestLanguageInjector : MultiHostInjector {
                 }
                 if (index == cratesEndIndex && !alreadyHasMain) {
                     if (prefix == null) prefix = StringBuilder()
-                    prefix.append("fn main() {")
+                    prefix.append("fn IntellijIdeaRulezzz() {")
                 }
 
                 val suffix = if (isLastIteration && !alreadyHasMain) "}" else null
